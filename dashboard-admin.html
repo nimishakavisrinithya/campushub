@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Activities Hub</title>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --success: #059669;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --card: #fff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background:var(--bg);
+            color:var(--text);
+        }
+        .container {
+            max-width:1400px;
+            margin:0 auto;
+            padding:1.5rem;
+        }
+        header {
+            background:var(--card);
+            box-shadow:0 2px 10px rgba(0,0,0,0.1);
+            position:sticky;
+            top:0;
+            z-index:100;
+        }
+        .header-top {
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            padding:1rem;
+        }
+        .logo {
+            font-size:1.75rem;
+            font-weight:800;
+            background:linear-gradient(135deg,var(--primary),#7c3aed);
+            -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;
+            background-clip:text;
+        }
+        .header-actions { display:flex; gap:1rem; align-items:center; }
+        .user-info { display:flex; align-items:center; gap:0.5rem; font-weight:500; }
+        .nav-tabs { display:flex; gap:0.25rem; background:var(--border); border-radius:9999px; padding:0.25rem; }
+        .nav-tab {
+            padding:0.75rem 1.5rem;
+            border-radius:9999px;
+            font-weight:600;
+            cursor:pointer;
+            transition:all 0.2s;
+        }
+        .nav-tab.active { background:var(--primary); color:#fff; }
+        .btn {
+            padding:0.625rem 1.25rem;
+            border:none;
+            border-radius:0.5rem;
+            font-weight:600;
+            cursor:pointer;
+            transition:all 0.2s;
+        }
+        .btn-primary { background:var(--primary); color:#fff; }
+        .btn-secondary { background:#e5e7eb; color:#111827; }
+        .btn-success { background:var(--success); color:#fff; }
+        .btn-danger { background:var(--danger); color:#fff; }
+
+        .main-layout {
+            display:grid;
+            grid-template-columns:1fr 320px;
+            gap:2rem;
+            margin-top:2rem;
+        }
+        @media (max-width:1024px){
+            .main-layout { grid-template-columns:1fr; gap:1.5rem; }
+        }
+
+        .search-filters {
+            background:var(--card);
+            padding:1.75rem;
+            border-radius:1rem;
+            box-shadow:0 4px 20px rgba(0,0,0,0.08);
+            margin-bottom:2rem;
+        }
+        .filters-grid {
+            display:grid;
+            grid-template-columns:2fr 0.8fr 1fr 1fr;
+            gap:1.25rem;
+            align-items:end;
+        }
+        .filter-group { display:flex; flex-direction:column; gap:0.5rem; min-width:0; }
+        .filter-label {
+            font-size:0.875rem;
+            font-weight:600;
+            color:#64748b;
+            text-transform:uppercase;
+            letter-spacing:0.05em;
+        }
+        .search-input,
+        .filter-select {
+            padding:1rem 1.25rem;
+            border:2px solid var(--border);
+            border-radius:0.875rem;
+            font-size:1rem;
+            height:56px;
+            width:100%;
+            background:var(--card);
+            transition:border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input:focus,
+        .filter-select:focus {
+            outline:none;
+            border-color:var(--primary);
+            box-shadow:0 0 0 3px rgba(79,70,229,0.1);
+        }
+        @media (max-width:768px){
+            .filters-grid{grid-template-columns:1fr; gap:1rem;}
+            .search-input,.filter-select{height:52px;}
+        }
+
+        .events-grid{display:grid; gap:1.5rem;}
+        .event-card{
+            background:var(--card);
+            border-radius:1rem;
+            padding:1.75rem;
+            box-shadow:0 8px 32px rgba(0,0,0,0.08);
+            border:1px solid var(--border);
+            transition:transform 0.2s, box-shadow 0.2s;
+        }
+        .event-card:hover{transform:translateY(-4px); box-shadow:0 20px 40px rgba(0,0,0,0.12);}
+        .event-header{display:flex; justify-content:space-between; align-items:flex-start; gap:1.5rem; margin-bottom:1rem;}
+        .event-badge{
+            display:inline-flex;
+            align-items:center;
+            gap:0.5rem;
+            padding:0.5rem 1rem;
+            border-radius:9999px;
+            font-size:0.875rem;
+            font-weight:600;
+        }
+        .badge-contests{background:linear-gradient(135deg,#ef4444,#f59e0b); color:#fff;}
+        .badge-sports{background:linear-gradient(135deg,#10b981,#34d399); color:#fff;}
+        .badge-cultural{background:linear-gradient(135deg,#8b5cf6,#c084fc); color:#fff;}
+        .status-badge{
+            padding:0.25rem 0.75rem;
+            border-radius:9999px;
+            font-size:0.75rem;
+            font-weight:600;
+        }
+        .status-approved{background:#dcfce7; color:#166534;}
+        .status-pending{background:#fef3c7; color:#92400e;}
+        .event-actions{display:flex; flex-direction:column; gap:0.75rem; align-items:flex-end;}
+
+        .calendar-container{
+            background:var(--card);
+            padding:1.75rem;
+            border-radius:1rem;
+            box-shadow:0 4px 20px rgba(0,0,0,0.08);
+        }
+        .calendar-nav{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:1.5rem;
+            flex-wrap:wrap;
+            gap:0.5rem;
+        }
+        .calendar-title{font-size:1.5rem; font-weight:800; color:var(--text);}
+        .calendar-grid{
+            display:grid;
+            grid-template-columns:repeat(7,1fr);
+            gap:0.1rem;
+        }
+        .calendar-header{
+            font-weight:700;
+            text-align:center;
+            padding:1rem;
+            font-size:0.875rem;
+            color:#64748b;
+            text-transform:uppercase;
+            letter-spacing:0.05em;
+        }
+        .calendar-day{
+            padding:0.5rem;
+            border-radius:0.75rem;
+            border:2px solid transparent;
+            cursor:pointer;
+            transition:all 0.2s;
+            text-align:center;
+            min-height:100px;
+            position:relative;
+        }
+        .calendar-day:hover{border-color:var(--primary);}
+        .calendar-day.inactive{color:#ccc; cursor:default;}
+        .calendar-day.today{border-color:var(--success); background:#e0f7e9;}
+        .calendar-day.has-events{background:#eff6ff; border-color:#93c5fd;}
+        .calendar-day.has-events:hover{background:#dbeafe;}
+        .day-number{font-size:1.25rem; font-weight:700;}
+        .day-events{font-size:0.75rem; margin-top:0.25rem; line-height:1.2; max-height:4rem; overflow:hidden; text-overflow:ellipsis; color:var(--primary);}
+        .day-events span{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0.1rem 0;}
+
+        .sidebar-card{
+            background:var(--card);
+            padding:1.75rem;
+            border-radius:1rem;
+            box-shadow:0 4px 20px rgba(0,0,0,0.08);
+            margin-bottom:1.5rem;
+        }
+        .sidebar-title{
+            display:flex;
+            align-items:center;
+            gap:0.75rem;
+            font-size:1.125rem;
+            font-weight:800;
+            margin-bottom:1.5rem;
+            color:var(--text);
+        }
+        .notification-item{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            padding:1rem;
+            border:2px solid var(--border);
+            border-radius:0.75rem;
+            margin-bottom:1rem;
+            cursor:pointer;
+            transition:all 0.2s;
+            text-decoration:none;
+        }
+        .notification-item:hover{border-color:var(--primary);}
+        .toggle-switch{
+            display:inline-block;
+            width:3rem;
+            height:1.5rem;
+            position:relative;
+            border-radius:9999px;
+            background:var(--border);
+            transition:background 0.2s;
+            cursor:pointer;
+        }
+        .toggle-switch.checked{background:var(--success);}
+        .toggle-knob{
+            position:absolute;
+            top:0.125rem;
+            left:0.125rem;
+            width:1.25rem;
+            height:1.25rem;
+            border-radius:50%;
+            background:#fff;
+            transition:transform 0.2s;
+            box-shadow:0 2px 4px rgba(0,0,0,0.2);
+        }
+        .toggle-switch.checked .toggle-knob{transform:translateX(1.5rem);}
+
+        .modal-overlay{
+            position:fixed;
+            top:0; left:0; right:0; bottom:0;
+            background:rgba(0,0,0,0.6);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            z-index:1000;
+            padding:1rem;
+        }
+        .modal-content{
+            background:var(--card);
+            width:100%;
+            max-width:900px;
+            max-height:95vh;
+            border-radius:1.5rem;
+            overflow:auto;
+            box-shadow:0 25px 50px rgba(0,0,0,0.25);
+        }
+        .modal-header{
+            padding:2rem 2rem 1.5rem;
+            background:linear-gradient(135deg,var(--primary),#7c3aed);
+            color:#fff;
+            display:flex;
+            justify-content:space-between;
+        }
+        .modal-title{font-size:1.75rem; font-weight:800;}
+        .form-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+            gap:1.5rem;
+            padding:2rem;
+        }
+        .form-group{display:flex; flex-direction:column;}
+        .form-label{font-weight:600; margin-bottom:0.5rem; color:#64748b;}
+        .form-input,.form-select,.form-textarea{
+            padding:1rem;
+            border:2px solid var(--border);
+            border-radius:0.75rem;
+            font-size:1rem;
+            background:var(--card);
+            transition:border-color 0.2s;
+        }
+        .form-input:focus,.form-select:focus,.form-textarea:focus{
+            outline:none;
+            border-color:var(--primary);
+        }
+        .form-textarea{resize:vertical; min-height:120px;}
+        .form-actions{
+            padding:2rem;
+            display:flex;
+            justify-content:flex-end;
+            gap:1rem;
+            border-top:1px solid var(--border);
+            background:var(--bg);
+        }
+
+        @media (max-width:768px){
+            .container{padding:1rem;}
+            .header-top{flex-direction:column; gap:1rem; text-align:center;}
+            .main-layout{grid-template-columns:1fr; gap:1rem;}
+            .event-header{flex-direction:column; align-items:flex-start; gap:1rem;}
+            .form-grid{gap:1rem; padding:1.5rem;}
+        }
+
+        .hidden{display:none;}
+    </style>
+</head>
+<body>
+<header>
+    <div class="header-top">
+        <div class="logo">Campus Hub</div>
+        <div class="header-actions">
+            <div class="user-info">
+                <span id="userRole">Student</span>
+                <div class="status-badge status-approved">Online</div>
+            </div>
+            <div class="nav-tabs">
+                <div id="navList" class="nav-tab active">Events</div>
+                <div id="navCalendar" class="nav-tab">Calendar</div>
+                <div id="navAbout" class="nav-tab">About</div>
+            </div>
+            <button id="createEventBtn" class="btn btn-primary">New Event</button>
+            <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="main-layout">
+        <main>
+            <div id="filtersContainer" class="search-filters">
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Search Events</label>
+                        <input type="text" class="search-input" id="searchInput" placeholder="Title, description, club..."
+                               oninput="renderEvents()">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Category</label>
+                        <select class="filter-select" id="categoryFilter" onchange="renderEvents()">
+                            <option value="">All Categories</option>
+                            <option value="Contests">Contests</option>
+                            <option value="Sports Events">Sports</option>
+                            <option value="Cultural Events">Cultural</option>
+                            <option value="AcademicClubs">Academic</option>
+                            <option value="General Notices">Notices</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Posted By</label>
+                        <select class="filter-select" id="clubFilter" onchange="renderEvents()">
+                            <option value="">All Clubs</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Status</label>
+                        <select class="filter-select" id="statusFilter" onchange="renderEvents()">
+                            <option value="all">All Events</option>
+                            <option value="approved">Approved</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="listView">
+                <div id="eventsGrid" class="events-grid"></div>
+            </div>
+
+            <div id="calendarView" class="hidden">
+                <div class="calendar-container">
+                    <div class="calendar-nav">
+                        <button class="btn btn-secondary" onclick="changeCalendarMonth(-1)">Prev</button>
+                        <div class="calendar-title" id="calendarTitle"></div>
+                        <button class="btn btn-secondary" onclick="changeCalendarMonth(1)">Next</button>
+                        <button class="btn btn-primary">Export Calendar</button>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                </div>
+                <div id="eventsForDay" class="hidden" style="margin-top:2rem;">
+                    <div class="search-filters">
+                        <h3 id="dailyEventsTitle" class="calendar-title" style="margin-bottom:1.5rem;">Events on Date</h3>
+                        <div id="dailyEventsList" class="events-grid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="aboutView" class="hidden">
+                <div class="search-filters">
+                    <h2 style="font-size:1.75rem;font-weight:800;margin-bottom:0.75rem;">About Campus Hub</h2>
+                    <p style="margin-bottom:0.5rem;">
+                        Campus Hub is a central place to discover contests, cultural events, sports, and important notices happening in your college.
+                    </p>
+                    <p style="margin-bottom:0.5rem;">
+                        Use the Events tab to browse all activities, the Calendar tab to see them by date, and enable notifications to stay updated.
+                    </p>
+                    <p>
+                        This prototype was built for a hackathon to make student communication and event discovery easier.
+                    </p>
+                </div>
+            </div>
+        </main>
+
+        <aside>
+            <div class="sidebar-card">
+                <div class="sidebar-title">🔔 Notifications</div>
+                <div id="notificationSettings">
+                    <div class="notification-item">
+                        <div>
+                            <div class="sidebar-title">Daily Digest</div>
+                            <div style="font-size:0.875rem;color:#64748b;">All non-urgent updates</div>
+                        </div>
+                        <div class="toggle-switch checked" data-setting="dailyDigest">
+                            <div class="toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="notification-item">
+                        <div>
+                            <div class="sidebar-title">Critical Alerts</div>
+                            <div style="font-size:0.875rem;color:#64748b;">Exam changes, emergencies</div>
+                        </div>
+                        <div class="toggle-switch checked" data-setting="criticalAlerts">
+                            <div class="toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="notification-item">
+                        <div>
+                            <div class="sidebar-title">Event Reminders</div>
+                            <div style="font-size:0.875rem;color:#64748b;">2 hours before events</div>
+                        </div>
+                        <div class="toggle-switch checked" data-setting="eventReminders">
+                            <div class="toggle-knob"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-card">
+                <div class="sidebar-title">🔗 Quick Links</div>
+                <ul style="list-style:none;">
+                    <li><a href="#" class="notification-item">Academic Calendar</a></li>
+                    <li><a href="#" class="notification-item">Student Portal</a></li>
+                    <li><a href="#" class="notification-item">Clubs Directory</a></li>
+                    <li><a href="#" class="notification-item">Export CSV</a></li>
+                </ul>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<div id="eventModal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title">Create New Event</div>
+            <button id="closeModal" style="background:none;border:none;color:white;font-size:2rem;cursor:pointer;line-height:1;">×</button>
+        </div>
+        <form id="eventForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Event Title</label>
+                    <input type="text" class="form-input" id="eventTitle" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" id="eventCategory" required>
+                        <option value="Contests">Contests</option>
+                        <option value="Sports Events">Sports Events</option>
+                        <option value="Cultural Events">Cultural Events</option>
+                        <option value="AcademicClubs">AcademicClubs</option>
+                        <option value="General Notices">General Notices</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Sub-category</label>
+                    <input type="text" class="form-input" id="eventSubCategory">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Posted By</label>
+                    <select class="form-select" id="eventPostedBy" required>
+                        <option>Admin</option>
+                        <option>Faculty Moderator</option>
+                        <option>Sports Committee</option>
+                        <option>Cultural Committee</option>
+                        <option>Robotics Club</option>
+                        <option>Finance Forum</option>
+                        <option>Student</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Venue</label>
+                    <input type="text" class="form-input" id="eventVenue">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Start Time</label>
+                    <input type="datetime-local" class="form-input" id="eventStart" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">End Time</label>
+                    <input type="datetime-local" class="form-input" id="eventEnd" required>
+                </div>
+                <div class="form-group" style="grid-column:1 / -1;">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" id="eventDescription" rows="4"></textarea>
+                </div>
+                <div class="form-group" style="grid-column:1 / -1;">
+                    <label class="form-label">Notification Settings</label>
+                    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;justify-content:center;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <label>Notify before</label>
+                            <input type="number" class="form-input" id="notifyHours" value="2" min="1" max="24" style="width:80px;">
+                            <span>hours</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="cancelEvent">Cancel</button>
+                <button type="submit" class="btn btn-primary">Post Event</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCurgvew2gVG5S4_rkRhOYyhmNSk4BU4qY",
+    authDomain: "campus-hub-2cd64.firebaseapp.com",
+    projectId: "campus-hub-2cd64",
+    storageBucket: "campus-hub-2cd64.firebasestorage.app",
+    messagingSenderId: "1023468926608",
+    appId: "1:1023468926608:web:cf0242c15d6f4337c7ca15",
+    measurementId: "G-VP9DHVXVYD"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  let events = [];
+  let currentFilters = {};
+  let currentView = 'list';
+  let userRole = 'Admin';
+  let currentCalendarDate = new Date();
+
+  function toLocalDateKey(d){
+    return [
+      d.getFullYear(),
+      String(d.getMonth()+1).padStart(2,'0'),
+      String(d.getDate()).padStart(2,'0')
+    ].join('-');
+  }
+
+  const longDateTimeOptions = {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  };
+
+  async function init(){
+    setupEventListeners();
+    await loadEvents();
+    renderFilters();
+    renderNotifications();
+    setDefaultFormDates();
+    switchView('list');
+  }
+
+  function setupEventListeners(){
+    document.getElementById('createEventBtn').onclick = showEventModal;
+    document.getElementById('closeModal').onclick = hideEventModal;
+    document.getElementById('cancelEvent').onclick = hideEventModal;
+    document.getElementById('navList').onclick = () => switchView('list');
+    document.getElementById('navCalendar').onclick = () => switchView('calendar');
+    document.getElementById('navAbout').onclick = () => switchView('about');
+    document.getElementById('eventForm').onsubmit = handleCreateEvent;
+  }
+
+  function switchView(view){
+    currentView = view;
+    document.querySelectorAll('[id^="nav"]').forEach(nav => nav.classList.remove('active'));
+    document.getElementById('nav' + view.charAt(0).toUpperCase() + view.slice(1)).classList.add('active');
+
+    document.getElementById('filtersContainer').classList.toggle('hidden', view !== 'list');
+    document.getElementById('listView').classList.toggle('hidden', view !== 'list');
+    document.getElementById('calendarView').classList.toggle('hidden', view !== 'calendar');
+    document.getElementById('aboutView').classList.toggle('hidden', view !== 'about');
+
+    if(view === 'calendar') renderCalendar();
+  }
+
+  async function loadEvents(){
+    if(events.length === 0){
+      const now = Date.now();
+      events = [
+        {
+          id:'demo1',
+          title:'SIH Hackathon 2025',
+          category:'Contests',
+          subCategory:'Coding',
+          postedBy:'Robotics Club',
+          venue:'Main Auditorium',
+          start:new Date(now + 7*24*60*60*1000).toISOString(),
+          end:new Date(now + 8*24*60*60*1000).toISOString(),
+          description:'National hackathon with 5L+ prizes!',
+          approved:true
+        },
+        {
+          id:'demo2',
+          title:'Cricket Tournament Finals',
+          category:'Sports Events',
+          subCategory:'Cricket',
+          postedBy:'Sports Committee',
+          venue:'Sports Complex',
+          start:new Date(now + 2*24*60*60*1000).toISOString(),
+          end:new Date(now + 2*24*60*60*1000 + 3*60*60*1000).toISOString(),
+          description:'Watch the grand finals live!',
+          approved:true
+        },
+        {
+          id:'demo3',
+          title:'Finance Workshop',
+          category:'AcademicClubs',
+          subCategory:'Investment',
+          postedBy:'Finance Forum',
+          venue:'MBA Seminar Hall',
+          start:new Date(now + 2*24*60*60*1000 + 5*60*60*1000).toISOString(),
+          end:new Date(now + 2*24*60*60*1000 + 7*60*60*1000).toISOString(),
+          description:'Learn the basics of stock market investment.',
+          approved:true
+        }
+      ];
+    }
+    events.sort((a,b)=>new Date(b.start)-new Date(a.start));
+    renderEvents();
+  }
+
+  async function handleCreateEvent(e){
+    e.preventDefault();
+    const form = e.target;
+    const eventData = {
+      title:form.eventTitle.value,
+      category:form.eventCategory.value,
+      subCategory:form.eventSubCategory.value,
+      postedBy:form.eventPostedBy.value,
+      venue:form.eventVenue.value,
+      start:form.eventStart.value,
+      end:form.eventEnd.value,
+      description:form.eventDescription.value,
+      approved:true,
+      id:Date.now().toString()
+    };
+    events.unshift(eventData);
+    hideEventModal();
+    renderEvents();
+    if(currentView === 'calendar') renderCalendar();
+    renderFilters();
+  }
+
+  function deleteEvent(id){
+    events = events.filter(e=>e.id!==id);
+    renderEvents();
+    if(currentView==='calendar') renderCalendar();
+    renderFilters();
+  }
+
+  function renderEvents(){
+    const filtered = applyFilters(events);
+    const container = document.getElementById('eventsGrid');
+    if(filtered.length===0){
+      container.innerHTML = `
+        <div style="text-align:center;padding:4rem;color:#64748b;">
+          <div style="font-size:4rem;margin-bottom:1rem;">📭</div>
+          <h3>No events found</h3>
+          <p>Try adjusting your filters</p>
+        </div>
+      `;
+      return;
+    }
+    container.innerHTML = filtered.map(createEventCard).join('');
+  }
+
+  function formatDateTimeLocal(iso){
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, longDateTimeOptions);
+  }
+
+  function createEventCard(event){
+    const badgeClass = event.category==='Contests' ? 'badge-contests'
+                     : event.category==='Sports Events' ? 'badge-sports'
+                     : 'badge-cultural';
+    return `
+      <div class="event-card">
+        <div class="event-header">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.75rem;">
+              <div class="event-badge ${badgeClass}">${event.category}</div>
+              <div class="status-badge ${event.approved ? 'status-approved' : 'status-pending'}">
+                ${event.approved ? 'Live' : 'Pending'}
+              </div>
+            </div>
+            <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;color:var(--text);">${event.title}</h2>
+            <div style="font-size:1rem;color:#64748b;margin-bottom:1rem;">${event.postedBy} • ${event.subCategory || 'General'}</div>
+            <p style="line-height:1.6;color:var(--text);margin-bottom:1rem;">${event.description || ''}</p>
+            <div style="display:flex;gap:1rem;font-size:0.875rem;color:#64748b;flex-wrap:wrap;">
+              <span>${event.venue || 'TBD'}</span>
+              <span>${formatDateTimeLocal(event.start)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="event-actions">
+          <a href="${makeGoogleCalendarLink(event)}" target="_blank" class="btn btn-primary" style="width:100%;text-align:center;text-decoration:none;">Calendar</a>
+          ${userRole==='Admin' ? `<button onclick="deleteEvent('${event.id}')" class="btn btn-danger">Delete</button>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function renderFilters(){
+    const clubFilter = document.getElementById('clubFilter');
+    const clubOptions = [...new Set(events.map(e=>e.postedBy))];
+    let optionsHtml = '<option value="">All Clubs</option>';
+    optionsHtml += clubOptions.map(c=>`<option value="${c}">${c}</option>`).join('');
+    clubFilter.innerHTML = optionsHtml;
+  }
+
+  function renderNotifications(){
+    document.querySelectorAll('.notification-item').forEach(item=>{
+      const toggle = item.querySelector('.toggle-switch');
+      if(toggle){
+        item.onclick = () => toggle.classList.toggle('checked');
+      }
+    });
+  }
+
+  function getEventsForMonth(date){
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+    const endOfMonth   = new Date(date.getFullYear(), date.getMonth()+1, 0, 23,59,59).getTime();
+    const approvedEvents = events.filter(e=>e.approved);
+    const eventsByDay = {};
+    approvedEvents.forEach(ev=>{
+      const eventStart = new Date(ev.start);
+      const t = eventStart.getTime();
+      if(t >= startOfMonth && t <= endOfMonth){
+        const key = toLocalDateKey(eventStart);
+        if(!eventsByDay[key]) eventsByDay[key] = [];
+        eventsByDay[key].push(ev);
+      }
+    });
+    return eventsByDay;
+  }
+
+  function renderCalendar(){
+    const calendarGrid = document.getElementById('calendarGrid');
+    const calendarTitle = document.getElementById('calendarTitle');
+    const now = new Date();
+    calendarTitle.textContent = currentCalendarDate.toLocaleString('en-GB',{ month:'long', year:'numeric' });
+    const todayKey = toLocalDateKey(now);
+
+    const startDay = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1).getDay();
+    const daysInMonth = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth()+1, 0).getDate();
+    const eventsByDay = getEventsForMonth(currentCalendarDate);
+
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let html = dayNames.map(d=>`<div class="calendar-header">${d}</div>`).join('');
+
+    for(let i=0;i<startDay;i++){
+      html += '<div class="calendar-day inactive"></div>';
+    }
+
+    for(let day=1; day<=daysInMonth; day++){
+      const dayDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), day);
+      const key = toLocalDateKey(dayDate);
+      const dayEvents = eventsByDay[key] || [];
+      const isToday = key === todayKey;
+      let eventsHtml = '';
+      if(dayEvents.length>0){
+        eventsHtml = '<div class="day-events">';
+        dayEvents.slice(0,3).forEach(ev => { eventsHtml += `<span>${ev.title}</span>`; });
+        if(dayEvents.length>3){
+          eventsHtml += `<span>...${dayEvents.length-3} more</span>`;
+        }
+        eventsHtml += '</div>';
+      }
+      html += `
+        <div class="calendar-day ${isToday ? 'today' : ''} ${dayEvents.length ? 'has-events' : ''}"
+             onclick="showDailyEvents('${key}')">
+          <div class="day-number">${day}</div>
+          ${eventsHtml}
+        </div>`;
+    }
+    calendarGrid.innerHTML = html;
+    document.getElementById('eventsForDay').classList.add('hidden');
+  }
+
+  function changeCalendarMonth(offset){
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth()+offset);
+    renderCalendar();
+  }
+
+  function showDailyEvents(dateKey){
+    const container = document.getElementById('eventsForDay');
+    const list = document.getElementById('dailyEventsList');
+    const titleEl = document.getElementById('dailyEventsTitle');
+
+    const [y,m,d] = dateKey.split('-').map(Number);
+    const selected = new Date(y, m-1, d);
+    titleEl.textContent = selected.toLocaleDateString('en-GB', {
+      day:'numeric',
+      month:'long',
+      year:'numeric'
+    });
+
+    const dayEvents = events
+      .filter(e=>e.approved && toLocalDateKey(new Date(e.start))===dateKey)
+      .sort((a,b)=>new Date(a.start)-new Date(b.start));
+
+    if(dayEvents.length===0){
+      list.innerHTML = `<div style="text-align:center;padding:2rem;color:#64748b;">
+                          <h3>No events scheduled for this day.</h3>
+                        </div>`;
+    }else{
+      list.innerHTML = dayEvents.map(createEventCard).join('');
+    }
+    container.classList.remove('hidden');
+    container.scrollIntoView({behavior:'smooth'});
+  }
+
+  function makeGoogleCalendarLink(event){
+    const start = new Date(event.start).toISOString().replace(/-|:|\.\d{3}/g,'');
+    const end   = new Date(event.end).toISOString().replace(/-|:|\.\d{3}/g,'');
+    const details = `Posted By: ${event.postedBy}\n${event.category}\n\n${event.description || ''}`;
+    const params = new URLSearchParams({
+      action:'TEMPLATE',
+      text:event.title,
+      dates:`${start}/${end}`,
+      details,
+      location:event.venue || ''
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
+  function updateFilters(){
+    currentFilters = {
+      search:document.getElementById('searchInput').value || '',
+      category:document.getElementById('categoryFilter').value || '',
+      club:document.getElementById('clubFilter').value || '',
+      status:document.getElementById('statusFilter').value || 'all'
+    };
+  }
+
+  function applyFilters(list){
+    updateFilters();
+    return list.filter(ev=>{
+      const s = currentFilters.search.toLowerCase();
+      const matchesSearch = !s ||
+        ev.title.toLowerCase().includes(s) ||
+        (ev.description || '').toLowerCase().includes(s) ||
+        ev.postedBy.toLowerCase().includes(s);
+      const matchesCategory = !currentFilters.category || ev.category===currentFilters.category;
+      const matchesClub = !currentFilters.club || ev.postedBy===currentFilters.club;
+      const matchesStatus = currentFilters.status==='all' ||
+        (currentFilters.status==='approved' ? ev.approved : !ev.approved);
+      return matchesSearch && matchesCategory && matchesClub && matchesStatus;
+    });
+  }
+
+  function showEventModal(){
+    document.getElementById('eventModal').classList.remove('hidden');
+  }
+  function hideEventModal(){
+    document.getElementById('eventModal').classList.add('hidden');
+    document.getElementById('eventForm').reset();
+    setDefaultFormDates();
+  }
+  function setDefaultFormDates(){
+    const now = new Date();
+    const tomorrow = new Date(now.getTime()+24*60*60*1000);
+    const fmt = d=>{
+      const y=d.getFullYear();
+      const m=String(d.getMonth()+1).padStart(2,'0');
+      const da=String(d.getDate()).padStart(2,'0');
+      const h=String(d.getHours()).padStart(2,'0');
+      const mi=String(d.getMinutes()).padStart(2,'0');
+      return `${y}-${m}-${da}T${h}:${mi}`;
+    };
+    document.getElementById('eventStart').value = fmt(now);
+    document.getElementById('eventEnd').value = fmt(tomorrow);
+  }
+
+  // init and logout wiring
+  init();
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await auth.signOut();
+        sessionStorage.clear();
+        window.location.href = 'login.html';
+      } catch (err) {
+        alert('Error logging out: ' + err.message);
+        console.error(err);
+      }
+    });
+  }
+</script>
+</body>
+</html>

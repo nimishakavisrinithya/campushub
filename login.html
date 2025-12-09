@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Campus Connect – Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --bg1: #6366f1;
+      --bg2: #a855f7;
+      --card-bg: #ffffff;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --primary: #4f46e5;
+      --border: #e5e7eb;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, var(--bg1), var(--bg2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .shell {
+      max-width: 460px;              /* bigger card */
+      width: 100%;
+      background: var(--card-bg);
+      border-radius: 32px;           /* a bit rounder */
+      padding: 32px 30px 26px;
+      box-shadow: 0 28px 70px rgba(15, 23, 42, 0.45);
+    }
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #4f46e5, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #eef2ff;
+      font-size: 1.1rem;
+    }
+    .logo-text {
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: var(--text-main);
+      font-size: 1.15rem;
+    }
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 1.4rem;
+    }
+
+    .role-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.6rem;
+    }
+    .role-card {
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      padding: 1rem 0.95rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.3rem;
+      cursor: pointer;
+      background: #f9fafb;
+      transition: all 0.18s ease;
+    }
+    .role-card span.icon {
+      font-size: 2rem;
+      margin-bottom: 0.1rem;
+    }
+    .role-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .role-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .role-card.active {
+      background: linear-gradient(145deg, #4f46e5, #6366f1);
+      border-color: transparent;
+      box-shadow: 0 14px 34px rgba(79, 70, 229, 0.4);
+      transform: translateY(-1px);
+    }
+    .role-card.active .role-title,
+    .role-card.active .role-desc {
+      color: white;
+    }
+
+    .panel {
+      background: #f9fafb;
+      border-radius: 18px;
+      border: 1px solid #e5e7eb;
+      padding: 1.1rem 1.05rem 0.9rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .field {
+      margin-bottom: 0.65rem;
+    }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+    .field input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border-radius: 11px;
+      border: 1px solid #d1d5db;
+      font-size: 0.9rem;
+      outline: none;
+      background: white;
+      color: var(--text-main);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.35);
+    }
+
+    .btn-primary {
+      width: 100%;
+      border: none;
+      margin-top: 0.2rem;
+      padding: 0.8rem 1rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white;
+      font-weight: 600;
+      font-size: 0.98rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      cursor: pointer;
+      box-shadow: 0 16px 38px rgba(79, 70, 229, 0.5);
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    }
+    .btn-primary:hover {
+      filter: brightness(1.04);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 0 10px 26px rgba(79, 70, 229, 0.4);
+    }
+
+    .error, .success {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      border-radius: 0.7rem;
+      padding: 0.5rem 0.6rem;
+      display: none;
+    }
+    .error {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+    .success {
+      background: #ecfdf3;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .student-fields, .admin-fields { display: none; }
+
+    @media (max-width: 520px){
+      .shell{padding: 26px 20px 22px; border-radius: 26px;}
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="logo-row">
+    <div class="logo-icon">🔗</div>
+    <div class="logo-text">Campus Connect</div>
+  </div>
+  <p class="subtitle">Select your role and sign in to continue.</p>
+
+  <div class="role-row">
+    <div class="role-card active" id="roleStudent" data-role="student">
+      <span class="icon">🎓</span>
+      <div class="role-title">Student</div>
+      <div class="role-desc">View events & volunteer</div>
+    </div>
+    <div class="role-card" id="roleAdmin" data-role="admin">
+      <span class="icon">🧑‍💼</span>
+      <div class="role-title">Admin</div>
+      <div class="role-desc">Full access</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <!-- Student login fields (ID + password) -->
+    <div id="studentFields" class="student-fields">
+      <div class="field">
+        <label for="studentId">Student ID</label>
+        <input type="text" id="studentId" placeholder="e.g. 21CSE123" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="studentPassword">Password</label>
+        <input type="password" id="studentPassword" placeholder="Your password" />
+      </div>
+    </div>
+
+    <!-- Admin login fields (email + password) -->
+    <div id="adminFields" class="admin-fields">
+      <div class="field">
+        <label for="adminEmail">Email</label>
+        <input type="email" id="adminEmail" placeholder="admin@college.edu" autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="adminPassword">Password</label>
+        <input type="password" id="adminPassword" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="loginButton">
+    <span id="btnIcon">🎓</span>
+    <span id="btnText">Continue as Student</span>
+  </button>
+
+  <div id="errorBox" class="error"></div>
+  <div id="successBox" class="success"></div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCurgvew2gVG5S4_rkRhOYyhmNSk4BU4qY",
+    authDomain: "campus-hub-2cd64.firebaseapp.com",
+    projectId: "campus-hub-2cd64",
+    storageBucket: "campus-hub-2cd64.firebasestorage.app",
+    messagingSenderId: "1023468926608",
+    appId: "1:1023468926608:web:cf0242c15d6f4337c7ca15",
+    measurementId: "G-VP9DHVXVYD"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+
+  const roleStudent   = document.getElementById('roleStudent');
+  const roleAdmin     = document.getElementById('roleAdmin');
+  const studentFields = document.getElementById('studentFields');
+  const adminFields   = document.getElementById('adminFields');
+  const loginButton   = document.getElementById('loginButton');
+  const btnIcon       = document.getElementById('btnIcon');
+  const btnText       = document.getElementById('btnText');
+  const errorBox      = document.getElementById('errorBox');
+  const successBox    = document.getElementById('successBox');
+
+  const studentIdInput       = document.getElementById('studentId');
+  const studentPasswordInput = document.getElementById('studentPassword');
+  const adminEmailInput      = document.getElementById('adminEmail');
+  const adminPasswordInput   = document.getElementById('adminPassword');
+
+  let currentRole = 'student';
+
+  function setRole(role){
+    currentRole = role;
+    if(role === 'student'){
+      roleStudent.classList.add('active');
+      roleAdmin.classList.remove('active');
+      studentFields.style.display = 'block';
+      adminFields.style.display   = 'none';
+      btnIcon.textContent = '🎓';
+      btnText.textContent = 'Continue as Student';
+    } else {
+      roleAdmin.classList.add('active');
+      roleStudent.classList.remove('active');
+      adminFields.style.display   = 'block';
+      studentFields.style.display = 'none';
+      btnIcon.textContent = '🧑‍💼';
+      btnText.textContent = 'Continue as Admin';
+    }
+    errorBox.style.display = 'none';
+    successBox.style.display = 'none';
+  }
+
+  roleStudent.addEventListener('click', () => setRole('student'));
+  roleAdmin.addEventListener('click', () => setRole('admin'));
+  setRole('student');
+
+  function showError(msg){
+    errorBox.textContent = msg;
+    errorBox.style.display = 'block';
+    successBox.style.display = 'none';
+  }
+  function showSuccess(msg){
+    successBox.textContent = msg;
+    successBox.style.display = 'block';
+    errorBox.style.display = 'none';
+  }
+
+  loginButton.addEventListener('click', async () => {
+    errorBox.style.display = 'none';
+    successBox.style.display = 'none';
+
+    loginButton.disabled = true;
+    const oldText = btnText.textContent;
+    btnText.textContent = 'Please wait…';
+
+    try {
+      if(currentRole === 'student'){
+        const studentId = (studentIdInput.value || '').trim();
+        const password  = studentPasswordInput.value;
+
+        if(!studentId || !password){
+          throw new Error('Student ID and password are required.');
+        }
+
+        const snap = await db.collection('students').doc(studentId).get();
+        if(!snap.exists){
+          throw new Error('Student ID not found. Contact admin.');
+        }
+        const data = snap.data();
+        if(data.password !== password){
+          throw new Error('Incorrect password for this Student ID.');
+        }
+
+        sessionStorage.setItem('role','student');
+        sessionStorage.setItem('studentId',studentId);
+        sessionStorage.setItem('studentName',data.name || '');
+        sessionStorage.setItem('studentEmail',data.email || '');
+
+        showSuccess('Login successful. Redirecting…');
+        window.location.href = 'dashboard-student.html';
+
+      } else {
+        const email = (adminEmailInput.value || '').trim();
+        const pass  = adminPasswordInput.value;
+
+        if(!email || !pass){
+          throw new Error('Email and password are required.');
+        }
+
+        const cred = await auth.signInWithEmailAndPassword(email, pass);
+        sessionStorage.setItem('uid',cred.user.uid);
+        sessionStorage.setItem('role','admin');
+        sessionStorage.setItem('email',email);
+
+        showSuccess('Login successful. Redirecting…');
+        window.location.href = 'dashboard-admin.html';
+      }
+    } catch (err){
+      console.error(err);
+      showError(err.message || 'Login failed.');
+    } finally {
+      loginButton.disabled = false;
+      btnText.textContent = oldText;
+    }
+  });
+</script>
+</body>
+</html>
